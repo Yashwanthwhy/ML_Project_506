@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wine Quality Predictor</title>
+  <meta name="description" content="Predict wine quality using a trained Random Forest model. Enter chemical properties and get an instant Good or Poor prediction." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #000000;
+      --white: #ffffff;
+      --gray-1: #111111;
+      --gray-2: #1c1c1c;
+      --gray-3: #333333;
+      --gray-4: #666666;
+      --gray-5: #999999;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ─────────────────────────────────────────────── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 48px;
+      height: 64px;
+      border-bottom: 1px solid var(--gray-3);
+      background: rgba(0,0,0,0.92);
+      backdrop-filter: blur(12px);
+    }
+    .nav-logo {
+      font-size: 14px; font-weight: 700; letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .nav-links { display: flex; gap: 32px; }
+    .nav-links a {
+      font-size: 12px; font-weight: 500; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--gray-5);
+      text-decoration: none; transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--white); }
+
+    /* ── HERO ────────────────────────────────────────────── */
+    .hero {
+      padding: 160px 48px 80px;
+      border-bottom: 1px solid var(--gray-3);
+    }
+    .hero-tag {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.25em;
+      text-transform: uppercase; color: var(--gray-4); margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-size: clamp(40px, 6vw, 80px);
+      font-weight: 900; line-height: 1.0;
+      letter-spacing: -0.03em;
+    }
+    .hero p {
+      margin-top: 24px; max-width: 480px;
+      font-size: 15px; line-height: 1.7; color: var(--gray-5);
+    }
+
+    /* ── MAIN LAYOUT ─────────────────────────────────────── */
+    .main {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      min-height: calc(100vh - 64px);
+    }
+
+    /* ── LEFT: INPUTS ───────────────────────────────────── */
+    .inputs-panel {
+      padding: 48px;
+      border-right: 1px solid var(--gray-3);
+    }
+    .inputs-panel h2 {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--gray-4);
+      margin-bottom: 40px;
+    }
+
+    /* Wine type toggle */
+    .wine-type-toggle {
+      display: flex;
+      border: 1px solid var(--gray-3);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 48px;
+      width: fit-content;
+    }
+    .wine-type-toggle button {
+      background: none; border: none; cursor: pointer;
+      padding: 10px 28px;
+      font-family: 'Inter', sans-serif;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--gray-4);
+      transition: all 0.2s;
+    }
+    .wine-type-toggle button.active {
+      background: var(--white); color: var(--black);
+    }
+
+    /* Feature groups */
+    .feature-group { margin-bottom: 40px; }
+    .feature-group-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--gray-4);
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--gray-2);
+    }
+
+    /* Slider rows */
+    .slider-row {
+      display: grid;
+      grid-template-columns: 180px 1fr 80px;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    .slider-label {
+      font-size: 13px; font-weight: 400; color: var(--white);
+    }
+    .slider-unit {
+      font-size: 11px; color: var(--gray-4); margin-left: 4px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%; height: 1px;
+      background: var(--gray-3);
+      outline: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--white);
+      border: none;
+      transition: transform 0.15s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+    input[type="range"]::-moz-range-thumb {
+      width: 14px; height: 14px;
+      border-radius: 50%; background: var(--white); border: none;
+    }
+
+    .slider-value {
+      font-size: 13px; font-weight: 500;
+      color: var(--white); text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Predict button */
+    .predict-btn {
+      display: block; width: 100%; margin-top: 40px;
+      padding: 18px;
+      background: var(--white); color: var(--black);
+      border: none; border-radius: 4px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px; font-weight: 700; letter-spacing: 0.2em;
+      text-transform: uppercase; cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .predict-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+    .predict-btn:active { transform: translateY(0); }
+    .predict-btn.loading { opacity: 0.5; pointer-events: none; }
+
+    /* ── RIGHT: RESULT ──────────────────────────────────── */
+    .result-panel {
+      padding: 48px;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 64px;
+      height: calc(100vh - 64px);
+      overflow-y: auto;
+    }
+    .result-panel h2 {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--gray-4);
+      margin-bottom: 40px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 12px; color: var(--gray-3);
+    }
+    .empty-state svg { width: 48px; height: 48px; opacity: 0.3; }
+    .empty-state p { font-size: 13px; letter-spacing: 0.05em; }
+
+    /* Result card */
+    .result-card {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+    }
+    .result-card.show { display: flex; }
+
+    /* Ring gauge */
+    .ring-wrapper {
+      position: relative;
+      width: 200px; height: 200px;
+      margin: 20px auto 32px;
+    }
+    .ring-svg { transform: rotate(-90deg); }
+    .ring-bg { fill: none; stroke: var(--gray-2); stroke-width: 6; }
+    .ring-fg {
+      fill: none; stroke: var(--white); stroke-width: 6;
+      stroke-linecap: round;
+      stroke-dasharray: 565;
+      stroke-dashoffset: 565;
+      transition: stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1);
+    }
+    .ring-text {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .ring-pct {
+      font-size: 36px; font-weight: 900;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+    .ring-sublabel {
+      font-size: 10px; font-weight: 500; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--gray-5); margin-top: 2px;
+    }
+
+    /* Verdict */
+    .verdict {
+      font-size: 72px; font-weight: 900;
+      letter-spacing: -0.04em; line-height: 1;
+      text-align: center;
+      opacity: 0; transform: translateY(12px);
+      transition: opacity 0.4s 0.3s, transform 0.4s 0.3s;
+    }
+    .verdict.show { opacity: 1; transform: translateY(0); }
+    .verdict.poor { color: var(--gray-4); }
+
+    .verdict-sub {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--gray-5);
+      margin-top: 8px; text-align: center;
+    }
+
+    /* Feature importance bars */
+    .importance-section {
+      margin-top: 40px; width: 100%;
+    }
+    .importance-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--gray-4);
+      margin-bottom: 16px;
+    }
+    .imp-row {
+      display: flex; align-items: center;
+      gap: 10px; margin-bottom: 10px;
+    }
+    .imp-name {
+      font-size: 11px; color: var(--gray-5);
+      width: 130px; flex-shrink: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .imp-bar-bg {
+      flex: 1; height: 2px; background: var(--gray-2); border-radius: 1px;
+    }
+    .imp-bar-fill {
+      height: 100%; background: var(--white); border-radius: 1px;
+      transition: width 1s 0.5s cubic-bezier(0.4,0,0.2,1);
+    }
+    .imp-pct {
+      font-size: 11px; color: var(--gray-5);
+      width: 36px; text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; margin-top: 32px; width: 100%;
+    }
+    .stat-box {
+      border: 1px solid var(--gray-3);
+      border-radius: 4px;
+      padding: 16px;
+    }
+    .stat-box-label {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.15em;
+      text-transform: uppercase; color: var(--gray-5); margin-bottom: 6px;
+    }
+    .stat-box-value {
+      font-size: 22px; font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Error toast */
+    .toast {
+      position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+      background: var(--white); color: var(--black);
+      padding: 12px 24px; border-radius: 4px;
+      font-size: 13px; font-weight: 500;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s;
+      z-index: 200;
+    }
+    .toast.show { opacity: 1; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; }
+      .result-panel { position: static; height: auto; border-top: 1px solid var(--gray-3); }
+      nav { padding: 0 24px; }
+      .inputs-panel, .result-panel { padding: 32px 24px; }
+      .hero { padding: 120px 24px 60px; }
+      .slider-row { grid-template-columns: 140px 1fr 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Wine Quality</div>
+  <div class="nav-links">
+    <a href="#predictor">Predictor</a>
+    <a href="#about">About</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="about">
+  <div class="hero-tag">Machine Learning (25CS2107E) &mdash; Team 64 &mdash; Random Forest Classifier</div>
+  <h1>Predict<br/>Wine Quality.</h1>
+  <p>The determination of wine quality is traditionally subjective and difficult to automate. This system applies a supervised Random Forest algorithm to UCI physicochemical factors (alcohol, volatile acidity, citric acid, sulphates, pH) to deliver instant quality predictions, confidence scores, and Gini feature importance analysis.</p>
+  <p style="margin-top: 14px; font-size: 13px; color: var(--gray-4); letter-spacing: 0.05em;">Team 64 &bull; Sura.Rahul Reddy (2520030305) &bull; Yashwanth (2520030506) &bull; KLH University</p>
+</section>
+
+<!-- MAIN -->
+<section class="main" id="predictor">
+
+  <!-- LEFT: Inputs -->
+  <div class="inputs-panel">
+    <h2>Chemical Properties</h2>
+
+    <!-- Wine type toggle -->
+    <div class="wine-type-toggle">
+      <button class="active" id="btn-red" onclick="setWineType(0)">Red Wine</button>
+      <button id="btn-white" onclick="setWineType(1)">White Wine</button>
+    </div>
+    <input type="hidden" id="is_white" value="0" />
+
+    <!-- GROUP 1: Acidity -->
+    <div class="feature-group">
+      <div class="feature-group-label">Acidity</div>
+
+      <div class="slider-row">
+        <label class="slider-label">Fixed Acidity <span class="slider-unit">g/L</span></label>
+        <input type="range" id="fixed_acidity" min="4.0" max="16.0" step="0.1" value="7.4"
+               oninput="updateVal('fixed_acidity','val_fixed_acidity')" />
+        <span class="slider-value" id="val_fixed_acidity">7.4</span>
+      </div>
+
+      <div class="slider-row">
+        <label class="slider-label">Volatile Acidity <span class="slider-unit">g/L</span></label>
+        <input type="range" id="volatile_acidity" min="0.08" max="1.6" step="0.01" value="0.5"
+               oninput="updateVal('volatile_acidity','val_volatile_acidity')" />
+        <span class="slider-value" id="val_volatile_acidity">0.50</span>
+      </div>
+
+      <div class="slider-row">
+        <label class="slider-label">Citric Acid <span class="slider-unit">g/L</span></label>
+        <input type="range" id="citric_acid" min="0.0" max="1.0" step="0.01" value="0.3"
+               oninput="updateVal('citric_acid','val_citric_acid')" />
+        <span class="slider-value" id="val_citric_acid">0.30</span>
+      </div>
+
+      <div class="slider-row">
+        <label class="slider-label">pH</label>
+        <input type="range" id="ph" min="2.8" max="4.0" step="0.01" value="3.3"
+               oninput="updateVal('ph','val_ph')" />
+        <span class="slider-value" id="val_ph">3.30</span>
+      </div>
+    </div>
+
+    <!-- GROUP 2: Sugar & Salts -->
+    <div class="feature-group">
+      <div class="feature-group-label">Sugar &amp; Salts</div>
+
+      <div class="slider-row">
+        <label class="slider-label">Residual Sugar <span class="slider-unit">g/L</span></label>
+        <input type="range" id="residual_sugar" min="0.5" max="30.0" step="0.1" value="3.0"
+               oninput="updateVal('residual_sugar','val_residual_sugar')" />
+        <span class="slider-value" id="val_residual_sugar">3.0</span>
+      </div>
+
+      <div class="slider-row">
+        <label class="slider-label">Chlorides <span class="slider-unit">g/L</span></label>
+        <input type="range" id="chlorides" min="0.01" max="0.2" step="0.001" value="0.05"
+               oninput="updateVal('chlorides','val_chlorides')" />
+        <span class="slider-value" id="val_chlorides">0.050</span>
+      </div>
+
+      <div class="slider-row">
+        <label class="slider-label">Sulphates <span class="slider-unit">g/L</span></label>
+        <input type="range" id="sulphates" min="0.2" max="2.0" step="0.01" value="0.6"
+               oninput="updateVal('sulphates','val_sulphates')" />
+        <span class="slider-value" id="val_sulphates">0.60</span>
+      </div>
+    </div>
+
+    <!-- GROUP 3: Sulfur Dioxide -->
+    <div class="feature-group">
+      <div class="feature-group-label">Sulfur Dioxide</div>
+
+      <div class="slider-row">
+        <label class="slider-label">Free SO₂ <span class="slider-unit">mg/L</span></label>
+        <input type="range" id="free_so2" min="1" max="70" step="1" value="25"
+               oninput="updateVal('free_so2','val_free_so2')" />
+        <span class="slider-value" id="val_free_so2">25</span>
+      </div>
+
+      <div class="slider-row">
+        <label class="slider-label">Total SO₂ <span class="slider-unit">mg/L</span></label>
+        <input type="range" id="total_so2" min="6" max="300" step="1" value="100"
+               oninput="updateVal('total_so2','val_total_so2')" />
+        <span class="slider-value" id="val_total_so2">100</span>
+      </div>
+    </div>
+
+    <!-- GROUP 4: Physical -->
+    <div class="feature-group">
+      <div class="feature-group-label">Physical Properties</div>
+
+      <div class="slider-row">
+        <label class="slider-label">Density <span class="slider-unit">g/cm³</span></label>
+        <input type="range" id="density" min="0.990" max="1.004" step="0.0001" value="0.9960"
+               oninput="updateVal('density','val_density')" />
+        <span class="slider-value" id="val_density">0.9960</span>
+      </div>
+
+      <div class="slider-row">
+        <label class="slider-label">Alcohol <span class="slider-unit">%</span></label>
+        <input type="range" id="alcohol" min="8.0" max="15.0" step="0.1" value="10.5"
+               oninput="updateVal('alcohol','val_alcohol')" />
+        <span class="slider-value" id="val_alcohol">10.5</span>
+      </div>
+    </div>
+
+    <button class="predict-btn" id="predictBtn" onclick="predict()">
+      Analyse Wine Quality
+    </button>
+  </div>
+
+  <!-- RIGHT: Result -->
+  <div class="result-panel">
+    <h2>Prediction</h2>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/>
+        <path d="M12 9v4l3 3"/>
+        <circle cx="16" cy="6" r="3"/>
+      </svg>
+      <p>Adjust the sliders and click Analyse</p>
+    </div>
+
+    <!-- Result card -->
+    <div class="result-card" id="resultCard">
+
+      <!-- Ring gauge -->
+      <div class="ring-wrapper">
+        <svg class="ring-svg" viewBox="0 0 200 200" width="200" height="200">
+          <circle class="ring-bg" cx="100" cy="100" r="90"/>
+          <circle class="ring-fg" id="ringFg" cx="100" cy="100" r="90"/>
+        </svg>
+        <div class="ring-text">
+          <span class="ring-pct" id="ringPct">0%</span>
+          <span class="ring-sublabel">P(Good)</span>
+        </div>
+      </div>
+
+      <!-- Verdict -->
+      <div class="verdict" id="verdict">—</div>
+      <div class="verdict-sub" id="verdictSub">wine quality</div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-box-label">Probability Good</div>
+          <div class="stat-box-value" id="statProb">—</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-box-label">Confidence</div>
+          <div class="stat-box-value" id="statConf">—</div>
+        </div>
+      </div>
+
+      <!-- Feature Importance -->
+      <div class="importance-section">
+        <div class="importance-label">Feature Importance (Model)</div>
+        <div id="importanceBars"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Feature importance from Flask ────────────────────────────────────────
+  const FEAT_IMP = {{ feature_importances | tojson }};
+
+  function updateVal(sliderId, valId) {
+    const el = document.getElementById(sliderId);
+    const val = parseFloat(el.value);
+    // Format based on step
+    const step = parseFloat(el.step);
+    let decimals = 0;
+    if (step < 0.001) decimals = 4;
+    else if (step < 0.01) decimals = 3;
+    else if (step < 0.1) decimals = 2;
+    else if (step < 1) decimals = 1;
+    document.getElementById(valId).textContent = val.toFixed(decimals);
+  }
+
+  let isWhite = 0;
+  function setWineType(val) {
+    isWhite = val;
+    document.getElementById('is_white').value = val;
+    document.getElementById('btn-red').classList.toggle('active', val === 0);
+    document.getElementById('btn-white').classList.toggle('active', val === 1);
+  }
+
+  // Animate ring
+  const CIRC = 2 * Math.PI * 90; // ~565
+  function setRing(pct) {
+    const offset = CIRC - (CIRC * pct / 100);
+    document.getElementById('ringFg').style.strokeDashoffset = offset;
+    document.getElementById('ringPct').textContent = pct.toFixed(1) + '%';
+  }
+
+  // Build importance bars
+  function buildImportance() {
+    const container = document.getElementById('importanceBars');
+    container.innerHTML = '';
+    const sorted = Object.entries(FEAT_IMP).sort((a,b) => b[1]-a[1]);
+    const maxVal = sorted[0][1];
+    sorted.forEach(([feat, imp]) => {
+      const pct = ((imp / maxVal) * 100).toFixed(0);
+      const row = document.createElement('div');
+      row.className = 'imp-row';
+      row.innerHTML = `
+        <span class="imp-name">${feat}</span>
+        <div class="imp-bar-bg"><div class="imp-bar-fill" id="bar_${feat.replace(/ /g,'_')}" style="width:0%"></div></div>
+        <span class="imp-pct">${(imp*100).toFixed(1)}%</span>
+      `;
+      container.appendChild(row);
+      // animate
+      setTimeout(() => {
+        document.getElementById('bar_' + feat.replace(/ /g,'_')).style.width = pct + '%';
+      }, 100);
+    });
+  }
+
+  function showToast(msg, dur=3000) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), dur);
+  }
+
+  async function predict() {
+    const btn = document.getElementById('predictBtn');
+    btn.classList.add('loading');
+    btn.textContent = 'Analysing...';
+
+    const payload = {
+      "fixed acidity":        parseFloat(document.getElementById('fixed_acidity').value),
+      "volatile acidity":     parseFloat(document.getElementById('volatile_acidity').value),
+      "citric acid":          parseFloat(document.getElementById('citric_acid').value),
+      "residual sugar":       parseFloat(document.getElementById('residual_sugar').value),
+      "chlorides":            parseFloat(document.getElementById('chlorides').value),
+      "free sulfur dioxide":  parseFloat(document.getElementById('free_so2').value),
+      "total sulfur dioxide": parseFloat(document.getElementById('total_so2').value),
+      "density":              parseFloat(document.getElementById('density').value),
+      "pH":                   parseFloat(document.getElementById('ph').value),
+      "sulphates":            parseFloat(document.getElementById('sulphates').value),
+      "alcohol":              parseFloat(document.getElementById('alcohol').value),
+      "is_white":             isWhite,
+    };
+
+    try {
+      const res  = await fetch('/api/predict', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (data.error) { showToast('Error: ' + data.error); return; }
+
+      // Show result card
+      document.getElementById('emptyState').style.display = 'none';
+      const card = document.getElementById('resultCard');
+      card.classList.add('show');
+
+      // Ring
+      setRing(data.probability_good);
+
+      // Verdict
+      const verdict = document.getElementById('verdict');
+      verdict.textContent = data.prediction;
+      verdict.className = 'verdict show' + (data.prediction === 'POOR' ? ' poor' : '');
+
+      // Stats
+      document.getElementById('statProb').textContent = data.probability_good + '%';
+      document.getElementById('statConf').textContent = data.confidence + '%';
+
+      // Importance bars
+      buildImportance();
+
+    } catch(e) {
+      showToast('Connection error. Is the server running?');
+    } finally {
+      btn.classList.remove('loading');
+      btn.textContent = 'Analyse Wine Quality';
+    }
+  }
+</script>
+</body>
+</html>
